@@ -1,0 +1,209 @@
+"""Platform for light integration."""
+#from __future__ import annotations
+
+import logging
+import math
+
+# Import the device class from the component that you want to support
+#import homeassistant.helpers.config_validation as cv
+from homeassistant.components.light import (ATTR_BRIGHTNESS, ATTR_COLOR_TEMP, ATTR_RGBW_COLOR,
+    PLATFORM_SCHEMA, LightEntity, 
+    SUPPORT_COLOR_TEMP, SUPPORT_WHITE_VALUE,
+    COLOR_MODE_COLOR_TEMP, COLOR_MODE_RGBW, COLOR_MODE_BRIGHTNESS, COLOR_MODE_ONOFF)
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
+import homeassistant.util.color as color_util
+
+from .const import DEFAULT_NAME, DOMAIN, ICON, LIGHT
+from .entity import IntegrationPoLEDEntity
+
+
+_LOGGER: logging.Logger = logging.getLogger(__package__)
+
+def setup_platform(
+    hass: HomeAssistant,
+    config: ConfigType,
+    add_entities: AddEntitiesCallback,
+    discovery_info) -> None:
+    
+    _LOGGER.info("Light setup platform")
+
+    # We only want this platform to be set up via discovery.
+    if discovery_info is None:
+        _LOGGER.info("Not in discovery mode")
+        return
+
+    coordinator = hass.data[DOMAIN]["coordinator"]
+    client = hass.data[DOMAIN]["client"]
+    
+    _LOGGER.info("Adding light enities...")
+    devList = [PoLEDLightChannel(coordinator, client._user.groups[chID]) for chID in client._user.groups]
+    #_LOGGER.info(repr(devList))
+    add_entities(devList)
+
+
+class PoLEDLightChannel(IntegrationPoLEDEntity, LightEntity):
+    """Representation of an PoLED Light."""  
+
+    @property
+    def name(self) -> str:
+        """Return the display name of this light."""
+        return self.ref.name
+
+
+    @property
+    def brightness(self):
+        """Return the brightness of the light."""
+
+        # RGBW - return the maximum level between whites and rgb average
+        if (self.ref.type & 4) == 4:
+            return max([self.ref.white_warm, self.ref.white_cold, (self.ref.rgb[0]+self.ref.rgb[1]+self.ref.rgb[2])/3])
+
+        # Otherwise return maximum of whites
+        return max([self.ref.white_warm, self.ref.white_cold])
+
+    @property
+    def color_temp(self):
+        #total = self.ref.white_warm + self.ref.white_cold
+        #if total > 0:
+        #    return self.min_mireds + (self.max_mireds - self.min_mireds) * self.ref.white_warm / total
+        #return self.min_mireds
+
+        b = self.brightness
+
+        if b == 0:
+            return self.min_mireds
+
+        if self.ref.white_warm > self.ref.white_cold:
+            r = float(self.ref.white_cold) / self.ref.white_warm / 2.0
+        else:
+            r = 1 - float(self.ref.white_warm) / self.ref.white_cold / 2.0
+
+        color_K = 2700 + 1300 * r
+        return 1e6 / color_K
+            
+
+    @property
+    def supported_color_modes(self):
+        if (self.ref.type & 3) == 3:
+            # White with temperature selection
+            return [COLOR_MODE_COLOR_TEMP]
+        elif (self.ref.type & 4) == 4:
+            return [COLOR_MODE_RGBW]
+        elif (self.ref.type & 3) == 1 or (self.ref.type & 3) == 2:
+            return [COLOR_MODE_BRIGHTNESS]
+        else:
+            return [COLOR_MODE_ONOFF]
+
+    @property
+    def color_mode(self):
+        # Only one mode supported
+        return self.supported_color_modes[0]
+
+    @property
+    def rgbw_color(self):
+        if (self.ref.type & 3) == 0:
+            return (self.ref.rgb[0], self.ref.rgb[1], self.ref.rgb[2], self.ref.white_warm)
+        else:
+            return (self.ref.rgb[0], self.ref.rgb[1], self.ref.rgb[2], self.ref.white_cold)
+
+    @property
+    def min_mireds(self):
+        return 1e6/4000.0
+
+    @property
+    def max_mireds(self):
+        return 1e6/2700.0
+
+
+    @property
+    def is_on(self) -> bool:
+        """Return true if light is on."""
+        return (self.ref.white_warm > 0 or 
+                self.ref.white_cold > 0 or 
+                self.ref.rgb[0] > 0 or 
+                self.ref.rgb[1] > 0 or 
+                self.ref.rgb[2] > 0)
+
+   
+    def turn_on(self, **kwargs) -> None:
+        """Instruct the light to turn on."""
+        if (self.ref.type & 3) == 3:
+            # WW+NW
+            if ATTR_COLOR_TEMP in kwargs:
+                temp_K = 1e6 / kwargs[ATTR_COLOR_TEMP]
+                power = self.brightness
+            else:
+                temp_K = 1e6 / self.color_temp                
+
+            temp = (temp_K - 2700) / 1300
+            if temp < 0:
+                temp = 0
+            elif temp > 1:
+                temp = 1
+
+            if ATTR_BRIGHTNESS in kwargs:
+                power = kwargs[ATTR_BRIGHTNESS]
+                if self.brightness == 0:
+                    temp = 0.5
+
+            if not (ATTR_BRIGHTNESS in kwargs or ATTR_COLOR_TEMP in kwargs):
+                # None of them are in arguments -> ON command to default value
+                power = 220
+
+            if temp < 0.5:
+                self.ref.white_warm = int(power)
+                self.ref.white_cold = int(power * 2 * temp)
+            else:
+                self.ref.white_warm = int((1 - temp) * 2 * power)
+                self.ref.white_cold = int(power)
+
+            self.ref.rgb = [0, 0, 0]
+
+        elif (self.ref.type & 4) == 4:
+            # RGBW
+            if ATTR_RGBW_COLOR in kwargs:
+                # RGBW in arguments
+                rgbw = list(kwargs[ATTR_RGBW_COLOR])
+                self.ref.rgb = rgbw[0:3]
+                self.ref.white_warm = rgbw[3]
+                self.ref.white_cold = rgbw[3]
+
+            elif ATTR_BRIGHTNESS in kwargs:
+                power = kwargs[ATTR_BRIGHTNESS]
+                self.ref.rgb = [power, power, power]
+                self.ref.white_warm = power
+                self.ref.white_cold = power
+
+            else:
+                self.ref.rgb = [0, 0, 0]
+                self.ref.white_warm = 220
+                self.ref.white_cold = 220
+
+        elif (self.ref.type & 3) > 0:
+            # Only brightness control
+            power = kwargs.get(ATTR_BRIGHTNESS, 220)
+
+            self.ref.white_warm = power
+            self.ref.white_cold = power          
+
+        else:
+            # On/off
+            power = kwargs.get(ATTR_BRIGHTNESS, 220)
+            self.ref.white_warm = power
+            self.ref.white_cold = power          
+
+        #_LOGGER.info(f"Setting {self.ref.name} to P={power}/T={temp} => {self.ref.white_warm}/{self.ref.white_cold}")
+        #_LOGGER.info(f"Resulting in P={self.brightness}/T={self.color_temp}")
+        
+        self.ref.override = 1
+        self.coordinator.api.set_status(self.ref)
+
+    def turn_off(self, **kwargs) -> None:
+        """Instruct the light to turn off."""
+        self.ref.white_warm = 0
+        self.ref.white_cold = 0
+        self.ref.rgb = [0, 0, 0]
+        self.ref.override = 1
+        self.coordinator.api.set_status(self.ref)

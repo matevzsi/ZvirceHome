@@ -1,0 +1,12 @@
+{
+  "domain": "zvirce_home",
+  "name": "Zvirce SmartHome",
+  "documentation": "",
+  "iot_class": "local_polling",
+  "issue_tracker": "",
+  "version": "0.0.0",
+  "config_flow": false,
+  "codeowners": [
+    "@neoto"
+  ]
+}
