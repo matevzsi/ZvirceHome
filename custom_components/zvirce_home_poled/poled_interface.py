@@ -27,9 +27,10 @@ class poled_group():
         self.name = source[1:21].decode("utf-8").strip('\0')
         self.type = source[30]
         self.icon = source[31]
-        self.user = None
+        self.user = None        
+        self.default_value = 220
 
-        #print(f"Group ID={self.ID}: {self.name} {self.type}/{self.icon}")
+        #print(f"Group ID={self.ID}: {self.name} {self.type}/{self.icon} default={self.default_value}")
 
     def parse_status(self, source):
         if self.ID != source[0]:
@@ -39,6 +40,7 @@ class poled_group():
         self.white_cold = source[2]
         self.rgb = list(source[3:6])
         self.override = source[6]
+        self.default_value = source[7]
 
         #print(f"Group {self.ID} status: {self.white_warm}/{self.white_cold} / {self.rgb} O:{self.override}")
         return True

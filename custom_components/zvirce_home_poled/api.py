@@ -51,4 +51,20 @@ class PoLEDApiClient:
 
     def stop_blind(self, blind):
         self._pli.stop_blind(blind)
-    
+
+    def get_light_default_value(self, group_id: int) -> int:
+        """Get the default ON value for a light group."""
+        if self._user and group_id in self._user.groups:
+            return self._user.groups[group_id].default_value
+        return 220  # Default fallback
+
+    def set_light_default_value(self, group_id: int, value: int) -> bool:
+        """Set the default ON value for a light group."""
+        if self._user and group_id in self._user.groups:
+            group = self._user.groups[group_id]
+            result = self._pli.set_default(self._user, group, value)
+            if result:
+                # Update local cache
+                group.default_value = value
+                return True
+        return False

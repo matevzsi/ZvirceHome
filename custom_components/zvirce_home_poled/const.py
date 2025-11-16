@@ -19,8 +19,9 @@ BINARY_SENSOR_DEVICE_CLASS = "connectivity"
 #SWITCH = "switch"
 COVER = "cover"
 LIGHT = "light"
+NUMBER = "number"
 #PLATFORMS = [BINARY_SENSOR, SENSOR, SWITCH]
-PLATFORMS = [LIGHT, COVER]
+PLATFORMS = [LIGHT, COVER, NUMBER]
 
 # Configuration and options
 CONF_ENABLED = "enabled"

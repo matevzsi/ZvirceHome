@@ -8,6 +8,7 @@ Custom integration for Zvirce SmartHome PoLED gateway, enabling control of light
 
 - **Full Light Control**: Support for RGBW lights, color temperature, brightness, and on/off control
 - **Cover/Blind Control**: Position and tilt angle control for window coverings
+- **Light Default Values**: Set default ON brightness for each light channel (stored in gateway hardware)
 - **Easy Configuration**: User-friendly config flow through Home Assistant UI
 - **Flexible Channel Management**: Enable/disable and rename individual light and cover channels
 - **Local Polling**: Direct communication with your PoLED gateway on your local network
@@ -76,6 +77,21 @@ Each cover provides:
 Note: Each physical cover creates two entities:
 - Main entity: Controls position
 - Tilt entity (prefixed with "Naklon"): Controls tilt angle only
+
+## Light Default ON Values
+
+Each light channel has a configurable default ON value that is stored in the PoLED gateway hardware:
+
+- **Range**: 0-255 (0 = off, 255 = maximum brightness)
+- **Location**: Found in the device's Controls section
+- **Purpose**: When you turn on a light without specifying brightness, this value is used
+- **Persistence**: Stored in gateway hardware, survives Home Assistant restarts
+- **Access**: Settings → Devices & Services → PoLED Gateway → Controls
+
+Example use cases:
+- Set bedroom lights to turn on at 50% brightness by default
+- Set hallway lights to turn on at full brightness
+- Set mood lighting to turn on at 20% brightness
 
 ## Troubleshooting
 
