@@ -7,6 +7,7 @@ from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity import EntityCategory
 
 from .const import CONF_LIGHTS, DOMAIN
 from .entity import IntegrationPoLEDEntity
@@ -21,7 +22,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up PoLED number entities from a config entry."""
-    _LOGGER.info("Number async_setup_entry")
+    _LOGGER.info("Number async_setup_entry called")
 
     # Get data from hass.data
     data = hass.data[DOMAIN][entry.entry_id]
@@ -31,18 +32,26 @@ async def async_setup_entry(
     # Get lights configuration from options
     lights_config = entry.options.get(CONF_LIGHTS, {})
 
-    _LOGGER.info("Adding number entities for light default values...")
+    _LOGGER.info(f"Number platform: Found {len(client._user.groups)} groups")
+    _LOGGER.info(f"Number platform: Lights config: {lights_config}")
+
     entities = []
 
     # Add number entities for enabled lights
     for group_id, group in client._user.groups.items():
         light_id = str(group_id)
         light_cfg = lights_config.get(light_id, {})
+        enabled = light_cfg.get("enabled", True)
+
+        _LOGGER.info(f"Number platform: Group {group_id} ({group.name}): enabled={enabled}, default_value={group.default_value}")
 
         # Only add if light is enabled (default to True if not specified)
-        if light_cfg.get("enabled", True):
-            entities.append(PoLEDLightDefaultValue(coordinator, group, entry, entry.entry_id))
+        if enabled:
+            entity = PoLEDLightDefaultValue(coordinator, group, entry, entry.entry_id)
+            entities.append(entity)
+            _LOGGER.info(f"Number platform: Added entity for {group.name}")
 
+    _LOGGER.info(f"Number platform: Adding {len(entities)} number entities")
     async_add_entities(entities)
 
 
@@ -59,7 +68,7 @@ class PoLEDLightDefaultValue(IntegrationPoLEDEntity, NumberEntity):
         super().__init__(coordinator, config_entry, entry_id)
         self._entry = entry
         self.entity_name = f"poled.{self.ref.name}_default"
-        self._attr_entity_category = "config"
+        self._attr_entity_category = EntityCategory.CONFIG
 
     @property
     def unique_id(self):

@@ -3,7 +3,7 @@
 NAME = "PoLED integration"
 DOMAIN = "zvirce_home_poled"
 DOMAIN_DATA = f"{DOMAIN}_data"
-VERSION = "2.0.0"
+VERSION = "2.0.1"
 ATTRIBUTION = ""
 ISSUE_URL = "https://github.com/matevzsi/ZvirceHome/issues"
 
@@ -20,7 +20,7 @@ BINARY_SENSOR_DEVICE_CLASS = "connectivity"
 COVER = "cover"
 LIGHT = "light"
 NUMBER = "number"
-#PLATFORMS = [BINARY_SENSOR, SENSOR, SWITCH]
+
 PLATFORMS = [LIGHT, COVER, NUMBER]
 
 # Configuration and options
