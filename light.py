@@ -1,53 +1,76 @@
 """Platform for light integration."""
-#from __future__ import annotations
+from __future__ import annotations
 
 import logging
-import math
 
-# Import the device class from the component that you want to support
-#import homeassistant.helpers.config_validation as cv
-from homeassistant.components.light import (ATTR_BRIGHTNESS, ATTR_COLOR_TEMP, ATTR_RGBW_COLOR,
-    PLATFORM_SCHEMA, LightEntity, 
-    ColorMode)
+from homeassistant.components.light import (
+    ATTR_BRIGHTNESS,
+    ATTR_COLOR_TEMP,
+    ATTR_RGBW_COLOR,
+    LightEntity,
+    ColorMode,
+)
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
-import homeassistant.util.color as color_util
 
-from .const import DEFAULT_NAME, DOMAIN, ICON, LIGHT
+from .const import CONF_LIGHTS, DOMAIN
 from .entity import IntegrationPoLEDEntity
 
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 
-def setup_platform(
+
+async def async_setup_entry(
     hass: HomeAssistant,
-    config: ConfigType,
-    add_entities: AddEntitiesCallback,
-    discovery_info) -> None:
-    
-    _LOGGER.info("Light setup platform")
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up PoLED lights from a config entry."""
+    _LOGGER.info("Light async_setup_entry")
 
-    # We only want this platform to be set up via discovery.
-    if discovery_info is None:
-        _LOGGER.info("Not in discovery mode")
-        return
+    # Get data from hass.data
+    data = hass.data[DOMAIN][entry.entry_id]
+    coordinator = data["coordinator"]
+    client = data["client"]
 
-    coordinator = hass.data[DOMAIN]["coordinator"]
-    client = hass.data[DOMAIN]["client"]
-    
-    _LOGGER.info("Adding light enities...")
-    devList = [PoLEDLightChannel(coordinator, client._user.groups[chID]) for chID in client._user.groups]
-    #_LOGGER.info(repr(devList))
-    add_entities(devList)
+    # Get lights configuration from options
+    lights_config = entry.options.get(CONF_LIGHTS, {})
+
+    _LOGGER.info("Adding light entities...")
+    entities = []
+
+    # Add enabled lights from configuration
+    for group_id, group in client._user.groups.items():
+        light_id = str(group_id)
+        light_cfg = lights_config.get(light_id, {})
+
+        # Only add if enabled (default to True if not specified)
+        if light_cfg.get("enabled", True):
+            entities.append(PoLEDLightChannel(coordinator, group, entry))
+
+    async_add_entities(entities)
 
 
 class PoLEDLightChannel(IntegrationPoLEDEntity, LightEntity):
-    """Representation of an PoLED Light."""  
+    """Representation of an PoLED Light."""
+
+    def __init__(self, coordinator, config_entry, entry: ConfigEntry):
+        """Initialize the light."""
+        super().__init__(coordinator, config_entry)
+        self._entry = entry
 
     @property
     def name(self) -> str:
         """Return the display name of this light."""
+        # Try to get custom name from options
+        lights_config = self._entry.options.get(CONF_LIGHTS, {})
+        light_id = str(self.ref.ID)
+        light_cfg = lights_config.get(light_id, {})
+        custom_name = light_cfg.get("name")
+
+        if custom_name:
+            return custom_name
         return self.ref.name
 
 

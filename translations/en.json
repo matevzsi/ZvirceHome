@@ -1,0 +1,41 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up PoLED Gateway",
+        "description": "Enter the connection details for your PoLED gateway",
+        "data": {
+          "host": "IP Address",
+          "user_id": "User ID"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the PoLED gateway. Please check the IP address and try again.",
+      "unknown": "Unexpected error occurred"
+    },
+    "abort": {
+      "already_configured": "This PoLED gateway is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Configure PoLED",
+        "menu_options": {
+          "lights": "Configure Lights",
+          "covers": "Configure Covers"
+        }
+      },
+      "lights": {
+        "title": "Configure Light Channels",
+        "description": "Enable/disable and rename light channels"
+      },
+      "covers": {
+        "title": "Configure Cover Channels",
+        "description": "Enable/disable and rename cover channels"
+      }
+    }
+  }
+}
+

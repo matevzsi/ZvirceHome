@@ -1,36 +1,33 @@
 """Sample API Client."""
 import logging
-import asyncio
-import socket
-from typing import Optional
-import aiohttp
-import async_timeout
+
 from .poled_interface import poled_interface
 
-TIMEOUT = 10
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 
 class PoLEDApiClient:
-    def __init__(self, userID: int) -> None:
+    def __init__(self, host: str, userID: int) -> None:
 
         # Initialize PoLED interface
         self._pli = poled_interface()
         self._user = None
+        self._host = host
+        self._user_id = userID
 
         # Search for the PoLED gateway, retry 5 times
         for retry in range(5):
-            #g = self._pli.discover_gateway()
-            #result = self._pli.connect(next(g, [[None]][0][0]))
-            result = self._pli.connect("192.168.88.99")
-            if result == False:                
+            result = self._pli.connect(host)
+            if result == False:
                 continue
             else:
                 self._pli.get_users()
-                self._pli.get_status(self._pli.users[userID])
-                self._user = self._pli.users[userID]            
+                if userID < len(self._pli.users):
+                    self._pli.get_status(self._pli.users[userID])
+                    self._user = self._pli.users[userID]
+                break
 
         if self._user is None:
-            _LOGGER.error("PoLED gateway not detected")
+            _LOGGER.error("PoLED gateway not detected or invalid user ID")
         
         
     def sync_get_data(self):

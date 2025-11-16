@@ -3,7 +3,7 @@
 NAME = "PoLED integration"
 DOMAIN = "zvirce_home"
 DOMAIN_DATA = f"{DOMAIN}_data"
-VERSION = "0.0.1"
+VERSION = "2.0.0"
 ATTRIBUTION = ""
 ISSUE_URL = ""
 
@@ -24,10 +24,16 @@ PLATFORMS = [LIGHT, COVER]
 
 # Configuration and options
 CONF_ENABLED = "enabled"
-CONF_USERNAME = "0"
+CONF_USERNAME = "username"
+CONF_HOST = "host"
+CONF_USER_ID = "user_id"
+CONF_LIGHTS = "lights"
+CONF_COVERS = "covers"
 
 # Defaults
 DEFAULT_NAME = DOMAIN
+DEFAULT_HOST = "192.168.88.99"
+DEFAULT_USER_ID = 0
 
 STARTUP_MESSAGE = f"""
 -------------------------------------------------------------------

@@ -1,68 +1,93 @@
 """Platform for cover integration."""
-#from __future__ import annotations
+from __future__ import annotations
 
 import logging
-import math
 
-
-from homeassistant.components.cover import (ATTR_POSITION, ATTR_TILT_POSITION, CoverEntity, CoverDeviceClass, CoverEntityFeature)
+from homeassistant.components.cover import (
+    ATTR_POSITION,
+    ATTR_TILT_POSITION,
+    CoverEntity,
+    CoverDeviceClass,
+    CoverEntityFeature,
+)
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
-import homeassistant.util.color as color_util
 
-from .const import DEFAULT_NAME, DOMAIN, ICON, COVER
+from .const import CONF_COVERS, DOMAIN
 from .entity import IntegrationPoLEDEntity
 
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 
-def setup_platform(
+
+async def async_setup_entry(
     hass: HomeAssistant,
-    config: ConfigType,
-    add_entities: AddEntitiesCallback,
-    discovery_info) -> None:
-    
-    _LOGGER.info("Blinds setup platform")
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up PoLED covers from a config entry."""
+    _LOGGER.info("Cover async_setup_entry")
 
-    # We only want this platform to be set up via discovery.
-    if discovery_info is None:
-        _LOGGER.info("Not in discovery mode")
-        return
+    # Get data from hass.data
+    data = hass.data[DOMAIN][entry.entry_id]
+    coordinator = data["coordinator"]
+    client = data["client"]
 
-    coordinator = hass.data[DOMAIN]["coordinator"]
-    client = hass.data[DOMAIN]["client"]
-    
-    _LOGGER.info("Adding blinds entities...")
-    devList = [PoLEDBlindChannel(coordinator, client._pli.blinds[i])  for i in range(12)]
-    add_entities(devList)
+    # Get covers configuration from options
+    covers_config = entry.options.get(CONF_COVERS, {})
 
-    # Add the blinds again, this time indicate only tilt support
-    devList2 = [PoLEDBlindChannel(coordinator, client._pli.blinds[i])  for i in range(12)]
-    for b in devList2:
-        b.limit_to_tilting()
+    _LOGGER.info("Adding cover entities...")
+    entities = []
 
-    add_entities(devList2)
+    # Add enabled covers from configuration
+    for blind_id in range(12):
+        blind = client._pli.blinds.get(blind_id)
+        if blind:
+            cover_id = str(blind_id)
+            cover_cfg = covers_config.get(cover_id, {})
+
+            # Only add if enabled (default to True if not specified)
+            if cover_cfg.get("enabled", True):
+                # Add main cover entity
+                entities.append(PoLEDBlindChannel(coordinator, blind, entry, False))
+                # Add tilt-only entity
+                entities.append(PoLEDBlindChannel(coordinator, blind, entry, True))
+
+    async_add_entities(entities)
 
 
 class PoLEDBlindChannel(IntegrationPoLEDEntity, CoverEntity):
-    """Representation of an PoLED blind."""  
+    """Representation of an PoLED blind."""
 
-    def __init__(self, coordinator, config_entry):
+    def __init__(self, coordinator, config_entry, entry: ConfigEntry, only_tilt: bool = False):
+        """Initialize the cover."""
         super().__init__(coordinator, config_entry)
-        self.onlyTilt = False
-        self.entity_name = "blind." + self.ref.name
-        self.blind_name = self.ref.name
+        self._entry = entry
+        self.onlyTilt = only_tilt
 
-    def limit_to_tilting(self):
-        self.onlyTilt = True
-        self.entity_name = "blind_angle_." + self.ref.name
-        self.blind_name = "Naklon " + self.ref.name
+        if only_tilt:
+            self.entity_name = "blind_angle_." + self.ref.name
+        else:
+            self.entity_name = "blind." + self.ref.name
 
     @property
     def name(self) -> str:
         """Return the display name of this blind."""
-        return self.blind_name
+        # Try to get custom name from options
+        covers_config = self._entry.options.get(CONF_COVERS, {})
+        cover_id = str(self.ref.ID)
+        cover_cfg = covers_config.get(cover_id, {})
+        custom_name = cover_cfg.get("name")
+
+        if custom_name:
+            if self.onlyTilt:
+                return f"Naklon {custom_name}"
+            return custom_name
+
+        if self.onlyTilt:
+            return f"Naklon {self.ref.name}"
+        return self.ref.name
 
     @property
     def current_cover_position(self) -> int:

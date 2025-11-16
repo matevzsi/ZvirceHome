@@ -1,66 +1,89 @@
 """
 PoLED integration for Home Assistant.
 """
-import asyncio
 from datetime import timedelta
 import logging
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import Config, HomeAssistant
+from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.helpers.typing import ConfigType
-from homeassistant.helpers import discovery
 
 from .api import PoLEDApiClient
 
-from .const import (    
-    CONF_USERNAME,
+from .const import (
+    CONF_HOST,
+    CONF_USER_ID,
     DOMAIN,
     PLATFORMS,
-    STARTUP_MESSAGE,
 )
 
 SCAN_INTERVAL = timedelta(seconds=2)
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 
-async def async_poll_api(hass):
-    #poll API here, grab the things I need from it, and set it to data
-    client = hass.data[DOMAIN]['client']
-    data = await hass.async_add_executor_job(client.sync_get_data)
-    return data
 
-async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:    
-    _LOGGER.info("PoLED setup")
-
-    _LOGGER.info(config)
-    _LOGGER.info("Creating API object...")    
-    client = PoLEDApiClient(0)
-    _LOGGER.info("Creating update coordinator")
-
-    '''coordinator = DataUpdateCoordinator(
-        hass,
-        _LOGGER,
-        name="poled_coordinator",
-        update_method=async_poll_api,
-        update_interval=timedelta(seconds=5), 
-    )'''
-
-    coordinator = PoLEDDataUpdateCoordinator(hass, client=client)
-    coordinator.api.sync_get_data()
-
-    hass.data[DOMAIN] = { 'coordinator': coordinator, 'client': client}
-    await async_poll_api(hass)
-
-
-    _LOGGER.info("Initializing platforms")
-    for platform in PLATFORMS:
-        coordinator.platforms.append(platform)
-        discovery.load_platform(hass, platform, DOMAIN, {}, config)
-        
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Set up the PoLED component from YAML (deprecated)."""
+    # This is kept for backwards compatibility but does nothing
+    # All setup is now done via config flow
     return True
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up PoLED from a config entry."""
+    _LOGGER.info("PoLED setup entry")
+
+    # Get configuration from config entry
+    host = entry.data[CONF_HOST]
+    user_id = entry.data[CONF_USER_ID]
+
+    _LOGGER.info(f"Creating API object for {host}...")
+
+    # Create API client
+    try:
+        client = await hass.async_add_executor_job(
+            PoLEDApiClient, host, user_id
+        )
+
+        if client._user is None:
+            raise ConfigEntryNotReady("Failed to connect to PoLED gateway")
+    except Exception as err:
+        _LOGGER.error(f"Failed to connect to PoLED gateway: {err}")
+        raise ConfigEntryNotReady from err
+
+    _LOGGER.info("Creating update coordinator")
+    coordinator = PoLEDDataUpdateCoordinator(hass, client=client)
+
+    # Perform initial data fetch
+    await coordinator.async_config_entry_first_refresh()
+
+    # Store coordinator and client
+    hass.data.setdefault(DOMAIN, {})
+    hass.data[DOMAIN][entry.entry_id] = {
+        'coordinator': coordinator,
+        'client': client,
+        'entry': entry,
+    }
+
+    # Forward setup to platforms
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    return True
+
+
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Unload a config entry."""
+    _LOGGER.info("PoLED unload entry")
+
+    # Unload platforms
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+    if unload_ok:
+        hass.data[DOMAIN].pop(entry.entry_id)
+
+    return unload_ok
 
 
 class PoLEDDataUpdateCoordinator(DataUpdateCoordinator):    
