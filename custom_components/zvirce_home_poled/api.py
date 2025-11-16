@@ -28,8 +28,17 @@ class PoLEDApiClient:
 
         if self._user is None:
             _LOGGER.error("PoLED gateway not detected or invalid user ID")
-        
-        
+
+    @property
+    def host(self) -> str:
+        """Return the host address."""
+        return self._host
+
+    @property
+    def user_id(self) -> int:
+        """Return the user ID."""
+        return self._user_id
+
     def sync_get_data(self):
         self._pli.get_status(self._user)
         [self._pli.get_blind_position(i) for i in range(12)]

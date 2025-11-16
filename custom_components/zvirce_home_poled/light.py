@@ -48,7 +48,7 @@ async def async_setup_entry(
 
         # Only add if enabled (default to True if not specified)
         if light_cfg.get("enabled", True):
-            entities.append(PoLEDLightChannel(coordinator, group, entry))
+            entities.append(PoLEDLightChannel(coordinator, group, entry, entry.entry_id))
 
     async_add_entities(entities)
 
@@ -56,9 +56,9 @@ async def async_setup_entry(
 class PoLEDLightChannel(IntegrationPoLEDEntity, LightEntity):
     """Representation of an PoLED Light."""
 
-    def __init__(self, coordinator, config_entry, entry: ConfigEntry):
+    def __init__(self, coordinator, config_entry, entry: ConfigEntry, entry_id: str):
         """Initialize the light."""
-        super().__init__(coordinator, config_entry)
+        super().__init__(coordinator, config_entry, entry_id)
         self._entry = entry
 
     @property

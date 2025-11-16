@@ -50,9 +50,9 @@ async def async_setup_entry(
             # Only add if enabled (default to True if not specified)
             if cover_cfg.get("enabled", True):
                 # Add main cover entity
-                entities.append(PoLEDBlindChannel(coordinator, blind, entry, False))
+                entities.append(PoLEDBlindChannel(coordinator, blind, entry, entry.entry_id, False))
                 # Add tilt-only entity
-                entities.append(PoLEDBlindChannel(coordinator, blind, entry, True))
+                entities.append(PoLEDBlindChannel(coordinator, blind, entry, entry.entry_id, True))
 
     async_add_entities(entities)
 
@@ -60,9 +60,9 @@ async def async_setup_entry(
 class PoLEDBlindChannel(IntegrationPoLEDEntity, CoverEntity):
     """Representation of an PoLED blind."""
 
-    def __init__(self, coordinator, config_entry, entry: ConfigEntry, only_tilt: bool = False):
+    def __init__(self, coordinator, config_entry, entry: ConfigEntry, entry_id: str, only_tilt: bool = False):
         """Initialize the cover."""
-        super().__init__(coordinator, config_entry)
+        super().__init__(coordinator, config_entry, entry_id)
         self._entry = entry
         self.onlyTilt = only_tilt
 
