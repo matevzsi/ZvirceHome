@@ -6,6 +6,7 @@ import logging
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
     ATTR_COLOR_TEMP,
+    ATTR_COLOR_TEMP_KELVIN,
     ATTR_RGBW_COLOR,
     LightEntity,
     ColorMode,
@@ -86,16 +87,12 @@ class PoLEDLightChannel(IntegrationPoLEDEntity, LightEntity):
         return max([self.ref.white_warm, self.ref.white_cold])
 
     @property
-    def color_temp(self):
-        #total = self.ref.white_warm + self.ref.white_cold
-        #if total > 0:
-        #    return self.min_mireds + (self.max_mireds - self.min_mireds) * self.ref.white_warm / total
-        #return self.min_mireds
-
+    def color_temp_kelvin(self):
+        """Return the color temperature in kelvin."""
         b = self.brightness
 
         if b == 0:
-            return self.min_mireds
+            return 2700  # Default to warmest when off
 
         if self.ref.white_warm > self.ref.white_cold:
             r = float(self.ref.white_cold) / self.ref.white_warm / 2.0
@@ -103,8 +100,17 @@ class PoLEDLightChannel(IntegrationPoLEDEntity, LightEntity):
             r = 1 - float(self.ref.white_warm) / self.ref.white_cold / 2.0
 
         color_K = 2700 + 1300 * r
-        return 1e6 / color_K
-            
+        return int(color_K)
+
+    @property
+    def min_color_temp_kelvin(self):
+        """Return the minimum color temperature in kelvin."""
+        return 2700  # Warmest
+
+    @property
+    def max_color_temp_kelvin(self):
+        """Return the maximum color temperature in kelvin."""
+        return 4000  # Coldest
 
     @property
     def supported_color_modes(self):
@@ -130,14 +136,6 @@ class PoLEDLightChannel(IntegrationPoLEDEntity, LightEntity):
         else:
             return (self.ref.rgb[0], self.ref.rgb[1], self.ref.rgb[2], self.ref.white_cold)
 
-    @property
-    def min_mireds(self):
-        return 1e6/4000.0
-
-    @property
-    def max_mireds(self):
-        return 1e6/2700.0
-
 
     @property
     def is_on(self) -> bool:
@@ -153,11 +151,16 @@ class PoLEDLightChannel(IntegrationPoLEDEntity, LightEntity):
         """Instruct the light to turn on."""
         if (self.ref.type & 3) == 3:
             # WW+NW
-            if ATTR_COLOR_TEMP in kwargs:
+            # Handle color temperature - prefer kelvin over mireds
+            if ATTR_COLOR_TEMP_KELVIN in kwargs:
+                temp_K = kwargs[ATTR_COLOR_TEMP_KELVIN]
+                power = self.brightness
+            elif ATTR_COLOR_TEMP in kwargs:
+                # Backward compatibility with mireds
                 temp_K = 1e6 / kwargs[ATTR_COLOR_TEMP]
                 power = self.brightness
             else:
-                temp_K = 1e6 / self.color_temp                
+                temp_K = self.color_temp_kelvin
 
             temp = (temp_K - 2700) / 1300
             if temp < 0:
@@ -170,7 +173,7 @@ class PoLEDLightChannel(IntegrationPoLEDEntity, LightEntity):
                 if self.brightness == 0:
                     temp = 0.5
 
-            if not (ATTR_BRIGHTNESS in kwargs or ATTR_COLOR_TEMP in kwargs):
+            if not (ATTR_BRIGHTNESS in kwargs or ATTR_COLOR_TEMP_KELVIN in kwargs or ATTR_COLOR_TEMP in kwargs):
                 # None of them are in arguments -> ON command to default value
                 power = 220
 
