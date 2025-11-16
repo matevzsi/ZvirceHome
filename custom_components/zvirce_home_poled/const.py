@@ -1,11 +1,11 @@
 """Constants for integration_blueprint."""
 # Base component constants
 NAME = "PoLED integration"
-DOMAIN = "zvirce_home"
+DOMAIN = "zvirce_home_poled"
 DOMAIN_DATA = f"{DOMAIN}_data"
 VERSION = "2.0.0"
 ATTRIBUTION = ""
-ISSUE_URL = ""
+ISSUE_URL = "https://github.com/matevzsi/ZvirceHome/issues"
 
 # Icons
 ICON = "mdi:format-quote-close"
