@@ -5,7 +5,7 @@ import logging
 import math
 
 
-from homeassistant.components.cover import *
+from homeassistant.components.cover import (ATTR_POSITION, ATTR_TILT_POSITION, CoverEntity, CoverDeviceClass, CoverEntityFeature)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
@@ -91,14 +91,14 @@ class PoLEDBlindChannel(IntegrationPoLEDEntity, CoverEntity):
 
     @property
     def device_class(self) -> str:
-        return DEVICE_CLASS_BLIND
+        return CoverDeviceClass.BLIND
 
     @property
     def supported_features(self) -> int:
         if self.onlyTilt:
-            return SUPPORT_OPEN_TILT | SUPPORT_CLOSE_TILT | SUPPORT_SET_TILT_POSITION | SUPPORT_STOP_TILT
+            return CoverEntityFeature.OPEN_TILT | CoverEntityFeature.CLOSE_TILT | CoverEntityFeature.SET_TILT_POSITION | CoverEntityFeature.STOP_TILT
         else:
-            return SUPPORT_OPEN | SUPPORT_CLOSE | SUPPORT_SET_POSITION | SUPPORT_STOP | SUPPORT_OPEN_TILT | SUPPORT_CLOSE_TILT | SUPPORT_SET_TILT_POSITION | SUPPORT_STOP_TILT
+            return CoverEntityFeature.OPEN | CoverEntityFeature.CLOSE | CoverEntityFeature.SET_POSITION | CoverEntityFeature.STOP | CoverEntityFeature.OPEN_TILT | CoverEntityFeature.CLOSE_TILT | CoverEntityFeature.SET_TILT_POSITION | CoverEntityFeature.STOP_TILT
 
 
     def open_cover(self, **kwargs):

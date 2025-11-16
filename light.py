@@ -8,8 +8,7 @@ import math
 #import homeassistant.helpers.config_validation as cv
 from homeassistant.components.light import (ATTR_BRIGHTNESS, ATTR_COLOR_TEMP, ATTR_RGBW_COLOR,
     PLATFORM_SCHEMA, LightEntity, 
-    SUPPORT_COLOR_TEMP, SUPPORT_WHITE_VALUE,
-    COLOR_MODE_COLOR_TEMP, COLOR_MODE_RGBW, COLOR_MODE_BRIGHTNESS, COLOR_MODE_ONOFF)
+    ColorMode)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
@@ -88,13 +87,13 @@ class PoLEDLightChannel(IntegrationPoLEDEntity, LightEntity):
     def supported_color_modes(self):
         if (self.ref.type & 3) == 3:
             # White with temperature selection
-            return [COLOR_MODE_COLOR_TEMP]
+            return [ColorMode.COLOR_TEMP]
         elif (self.ref.type & 4) == 4:
-            return [COLOR_MODE_RGBW]
+            return [ColorMode.RGBW]
         elif (self.ref.type & 3) == 1 or (self.ref.type & 3) == 2:
-            return [COLOR_MODE_BRIGHTNESS]
+            return [ColorMode.BRIGHTNESS]
         else:
-            return [COLOR_MODE_ONOFF]
+            return [ColorMode.ONOFF]
 
     @property
     def color_mode(self):
